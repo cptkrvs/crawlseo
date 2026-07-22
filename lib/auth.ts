@@ -2,6 +2,7 @@ import NextAuth from "next-auth";
 import Google from "next-auth/providers/google";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import { db } from "./db";
+import { saveGoogleTokensByEmail } from "./google/tokens";
 
 if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
   throw new Error("Missing Google OAuth credentials");
@@ -33,19 +34,15 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   events: {
     async signIn({ user, account }) {
       if (account?.access_token && user?.email) {
-        // Save Google OAuth tokens after user is created by adapter
+        // Save Google OAuth tokens (encrypted at rest) after the adapter has
+        // created the user.
         try {
-          await db.user.update({
-            where: { email: user.email },
-            data: {
-              googleTokens: {
-                accessToken: account.access_token,
-                refreshToken: account.refresh_token,
-                expiresAt: account.expires_at,
-                tokenType: account.token_type,
-                scope: account.scope,
-              },
-            },
+          await saveGoogleTokensByEmail(user.email, {
+            accessToken: account.access_token,
+            refreshToken: account.refresh_token,
+            expiresAt: account.expires_at,
+            tokenType: account.token_type,
+            scope: account.scope,
           });
         } catch (error) {
           console.error("Failed to save Google tokens:", error);

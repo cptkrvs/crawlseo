@@ -49,25 +49,32 @@ export async function POST(req: Request) {
 
     // Insert/update keywords
     for (const keyword of keywords) {
+      const date = new Date(keyword.date);
+      const page = keyword.page ?? "";
+      const device = keyword.device ?? "";
+      const country = keyword.country ?? "";
       await db.keyword.upsert({
         where: {
-          siteId_query_date: {
+          siteId_query_date_device_country_page: {
             siteId,
             query: keyword.query,
-            date: new Date(keyword.date),
+            date,
+            device,
+            country,
+            page,
           },
         },
         create: {
           siteId,
           query: keyword.query,
-          date: new Date(keyword.date),
+          date,
           clicks: keyword.clicks,
           impressions: keyword.impressions,
           ctr: keyword.ctr,
           position: keyword.position,
-          page: keyword.page,
-          device: keyword.device,
-          country: keyword.country,
+          page,
+          device,
+          country,
         },
         update: {
           clicks: keyword.clicks,

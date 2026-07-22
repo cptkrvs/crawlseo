@@ -2,6 +2,13 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { syncGSCDataForSite } from "@/lib/workers/gsc-sync";
 import { ensureDefaultAlerts } from "@/lib/alerts/evaluate";
+import { assertUrlAllowed } from "@/lib/net/ssrf-guard";
+
+/** Turn a user-supplied domain/property into the URL the crawler will fetch. */
+function domainToUrl(domain: string): string {
+  const cleaned = domain.trim().replace(/^sc-domain:/, "");
+  return /^https?:\/\//i.test(cleaned) ? cleaned : `https://${cleaned}`;
+}
 
 export async function GET() {
   try {
@@ -58,6 +65,17 @@ export async function POST(req: Request) {
     if (!domain || !gscProperty) {
       return Response.json(
         { error: "Missing domain or gscProperty" },
+        { status: 400 }
+      );
+    }
+
+    // SSRF: reject domains that point at internal/private hosts before we ever
+    // store them or hand them to the crawler.
+    try {
+      await assertUrlAllowed(domainToUrl(domain));
+    } catch {
+      return Response.json(
+        { error: "Domain must be a public, resolvable http(s) host" },
         { status: 400 }
       );
     }

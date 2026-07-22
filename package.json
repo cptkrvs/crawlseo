@@ -3,10 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "description": "Open-source SEO monitoring. GSC + Crawler + Core Web Vitals + MCP in one dashboard.",
-  "homepage": "https://github.com/crawlseo/crawlseo",
-  "repository": "https://github.com/crawlseo/crawlseo",
+  "homepage": "https://github.com/cptkrvs/crawlseo",
+  "repository": "https://github.com/cptkrvs/crawlseo",
   "license": "MIT",
-  "author": "Brandson Digital",
+  "author": "Brandson Digital (fork: cptkrvs)",
   "keywords": [
     "seo",
     "seo-tools",
@@ -24,6 +24,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "test": "vitest run",
     "mcp": "npx tsx mcp/server.ts",
     "seed:demo": "npx tsx scripts/seed-demo.ts",
     "seed:demo:clean": "npx tsx scripts/seed-demo.ts --clean"
@@ -57,6 +58,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.2.2",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^2.1.9"
   }
 }

@@ -15,7 +15,7 @@ model User {
   emailVerified DateTime?
   name          String?
   image         String?
-  googleTokens  Json?     // Encrypted GSC OAuth tokens
+  googleTokens  Json?     // AES-256-GCM encrypted GSC OAuth tokens (see lib/google/tokens.ts)
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
@@ -111,13 +111,16 @@ model Keyword {
   impressions Int      @default(0)
   ctr         Float    @default(0)
   position    Float    @default(0)
-  page        String?  // Landing page URL
-  device      String?  // DESKTOP, MOBILE, TABLET
-  country     String?  // Country code
+  page        String   @default("") // Landing page URL
+  device      String   @default("") // DESKTOP, MOBILE, TABLET
+  country     String   @default("") // Country code
 
   site        Site     @relation(fields: [siteId], references: [id], onDelete: Cascade)
 
-  @@unique([siteId, query, date])
+  // GSC is fetched broken down by query/page/date/device/country — the unique
+  // key must include all of them, otherwise device/country/page variants
+  // collapse onto one row and overwrite each other (silent data loss).
+  @@unique([siteId, query, date, device, country, page])
   @@index([siteId, date])
   @@index([siteId, query, date])
 }

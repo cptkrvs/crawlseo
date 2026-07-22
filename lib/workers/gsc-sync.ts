@@ -68,12 +68,22 @@ export async function syncGSCDataForSite(
         const date = new Date(keyword.date);
         date.setHours(0, 0, 0, 0); // Normalize to start of day
 
+        // Coalesce dimension keys to "" so the compound unique key never sees
+        // NULL (Postgres treats NULLs as distinct, which would defeat the
+        // upsert). GSC returns these whenever the dimensions are requested.
+        const page = keyword.page ?? "";
+        const device = keyword.device ?? "";
+        const country = keyword.country ?? "";
+
         await db.keyword.upsert({
           where: {
-            siteId_query_date: {
+            siteId_query_date_device_country_page: {
               siteId,
               query: keyword.query,
               date,
+              device,
+              country,
+              page,
             },
           },
           create: {
@@ -84,18 +94,15 @@ export async function syncGSCDataForSite(
             impressions: keyword.impressions,
             ctr: keyword.ctr,
             position: keyword.position,
-            page: keyword.page,
-            device: keyword.device,
-            country: keyword.country,
+            page,
+            device,
+            country,
           },
           update: {
             clicks: keyword.clicks,
             impressions: keyword.impressions,
             ctr: keyword.ctr,
             position: keyword.position,
-            page: keyword.page,
-            device: keyword.device,
-            country: keyword.country,
           },
         });
 

@@ -3,13 +3,15 @@ import { db } from "@/lib/db";
 import type { IssueSeverity, IssueType } from "@prisma/client";
 import robotsParser from "robots-parser";
 import { REMEDIATION } from "./remediation";
+import { assertUrlAllowed, isBlockedHostLiteral } from "@/lib/net/ssrf-guard";
 
 const ABSOLUTE_MAX_PAGES = 2000;
 const BATCH_SIZE = 15;
 const BATCH_DELAY_MS = 100;
 const FETCH_TIMEOUT_MS = 12_000;
 const USER_AGENT =
-  "CrawlSEOBot/1.0 (+https://crawlseo.dev; self-hosted SEO audit)";
+  process.env.CRAWLER_USER_AGENT ||
+  "CrawlSEOBot/1.0 (+https://github.com/cptkrvs/crawlseo; self-hosted SEO audit)";
 
 type IssueInput = {
   url: string;
@@ -60,6 +62,9 @@ function normalizeUrl(raw: string, base: string): string | null {
   try {
     const u = new URL(raw, base);
     if (u.protocol !== "http:" && u.protocol !== "https:") return null;
+    // SSRF: drop obvious internal/loopback/link-local host literals up front.
+    // Real hostnames are re-checked with DNS resolution in fetchPage().
+    if (isBlockedHostLiteral(u.hostname)) return null;
     u.hash = "";
     if (u.pathname.length > 1 && u.pathname.endsWith("/")) {
       u.pathname = u.pathname.slice(0, -1);
@@ -307,15 +312,34 @@ async function fetchPage(url: string): Promise<{
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
   const started = Date.now();
+  const MAX_REDIRECTS = 5;
   try {
-    const res = await fetch(url, {
-      redirect: "follow",
-      signal: controller.signal,
-      headers: {
-        "User-Agent": USER_AGENT,
-        Accept: "text/html,application/xhtml+xml",
-      },
-    });
+    let currentUrl = url;
+    let res: Response | null = null;
+    // Follow redirects manually so each hop's target is re-validated against
+    // the SSRF guard — otherwise a public page could 30x to an internal host.
+    for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
+      await assertUrlAllowed(currentUrl);
+      res = await fetch(currentUrl, {
+        redirect: "manual",
+        signal: controller.signal,
+        headers: {
+          "User-Agent": USER_AGENT,
+          Accept: "text/html,application/xhtml+xml",
+        },
+      });
+      if (res.status >= 300 && res.status < 400) {
+        const location = res.headers.get("location");
+        if (!location) break;
+        if (hop === MAX_REDIRECTS) {
+          throw new Error(`Too many redirects fetching ${url}`);
+        }
+        currentUrl = new URL(location, currentUrl).toString();
+        continue;
+      }
+      break;
+    }
+    if (!res) throw new Error(`No response fetching ${url}`);
     const buf = await res.arrayBuffer();
     const bytes = buf.byteLength;
     const contentType = res.headers.get("content-type") || "";
@@ -326,7 +350,7 @@ async function fetchPage(url: string): Promise<{
     return {
       statusCode: res.status,
       html,
-      finalUrl: res.url || url,
+      finalUrl: currentUrl,
       loadMs: Date.now() - started,
       bytes,
       contentType,
@@ -338,10 +362,12 @@ async function fetchPage(url: string): Promise<{
 
 async function fetchText(url: string): Promise<string | null> {
   try {
+    await assertUrlAllowed(url);
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
     try {
       const res = await fetch(url, {
+        redirect: "manual",
         signal: controller.signal,
         headers: { "User-Agent": USER_AGENT },
       });
@@ -545,6 +571,8 @@ export async function runSiteCrawl(
       });
 
   try {
+    // SSRF: reject internal/private seed targets before any fetch.
+    await assertUrlAllowed(seedUrl);
     return await executeCrawl(crawl.id, siteId, seedUrl, origin, effectiveMax);
   } catch (err) {
     // Mark crawl as failed on any unhandled error
