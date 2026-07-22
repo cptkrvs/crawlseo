@@ -9,6 +9,11 @@ export default defineConfig({
     path: "prisma/migrations",
   },
   datasource: {
-    url: process.env["DATABASE_URL"] || "postgresql://localhost:5432/crawlseo",
+    // Fall back to Scalingo's provider-specific var so `prisma migrate deploy`
+    // works on the platform without setting DATABASE_URL manually.
+    url:
+      process.env["DATABASE_URL"] ||
+      process.env["SCALINGO_POSTGRESQL_URL"] ||
+      "postgresql://localhost:5432/crawlseo",
   },
 });

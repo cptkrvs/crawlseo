@@ -1,0 +1,37 @@
+{
+  "name": "crawlseo",
+  "description": "Self-hosted SEO monitoring — Google Search Console, site crawler, Core Web Vitals, and an MCP server, in one dashboard.",
+  "repository": "https://github.com/cptkrvs/crawlseo",
+  "env": {
+    "NEXTAUTH_SECRET": {
+      "description": "Signs sessions AND encrypts stored Google/DataForSEO credentials at rest.",
+      "generator": "secret"
+    },
+    "CRON_SECRET": {
+      "description": "Bearer token that protects the /api/cron scheduler endpoint.",
+      "generator": "secret"
+    },
+    "GOOGLE_CLIENT_ID": {
+      "description": "Google OAuth client ID (enable Search Console, URL Inspection, PageSpeed Insights APIs)."
+    },
+    "GOOGLE_CLIENT_SECRET": {
+      "description": "Google OAuth client secret."
+    },
+    "NEXTAUTH_URL": {
+      "description": "Public app URL, e.g. https://crawlseo.osc-fr1.scalingo.io (used for OAuth callbacks and by the scheduler)."
+    },
+    "GOOGLE_PAGESPEED_KEY": {
+      "description": "Optional: PageSpeed Insights API key for higher Core Web Vitals quota.",
+      "required": false
+    }
+  },
+  "formation": {
+    "web": {
+      "amount": 1,
+      "size": "M"
+    }
+  },
+  "addons": [
+    "postgresql:postgresql-starter-1024"
+  ]
+}

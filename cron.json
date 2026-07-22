@@ -1,0 +1,10 @@
+{
+  "jobs": [
+    {
+      "command": "0 * * * * wget -q -O - --header=\"Authorization: Bearer $CRON_SECRET\" --post-data=\"\" \"$NEXTAUTH_URL/api/cron?job=gsc\""
+    },
+    {
+      "command": "30 4 * * * wget -q -O - --header=\"Authorization: Bearer $CRON_SECRET\" --post-data=\"\" \"$NEXTAUTH_URL/api/cron?job=vitals\""
+    }
+  ]
+}
